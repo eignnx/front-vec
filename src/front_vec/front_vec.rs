@@ -74,19 +74,21 @@ impl<T> FrontVec<T> {
         let old_cap = self.cap;
         self.cap = new_cap;
 
-        // Calculate pointers to the beginnings of the initialized elements.
-        let old_front = unsafe { old_buf.as_ptr().add(old_cap - self.len) };
-        let front = unsafe { self.buf.as_ptr().add(self.cap - self.len) };
+        // If old buffer wasn't `Unique::dangling()`...
+        if old_cap > 0 {
+            // Calculate pointers to the beginnings of the initialized elements.
+            let old_front = unsafe { old_buf.as_ptr().add(old_cap - self.len) };
+            let front = unsafe { self.buf.as_ptr().add(self.cap - self.len) };
 
-        // Copy all initialized elements from old to new.
-        unsafe {
-            front.copy_from_nonoverlapping(old_front, self.len);
-        }
-
-        // Deallocate old buffer.
-        let old_layout = Layout::array::<MaybeUninit<T>>(old_cap).unwrap();
-        unsafe {
-            std::alloc::dealloc(old_buf.as_ptr() as *mut u8, old_layout);
+            // Copy all initialized elements from old to new.
+            unsafe {
+                front.copy_from_nonoverlapping(old_front, self.len);
+            }
+            // Deallocate old buffer.
+            let old_layout = Layout::array::<MaybeUninit<T>>(old_cap).unwrap();
+            unsafe {
+                std::alloc::dealloc(old_buf.as_ptr() as *mut u8, old_layout);
+            }
         }
     }
 
@@ -184,6 +186,8 @@ impl<T> FrontVec<T> {
             // NOTE: doesn't drop anything..... hmmmmmm
             buf.copy_from_nonoverlapping(slice.as_ptr(), slice.len());
         }
+
+        self.len += slice.len();
     }
 }
 
@@ -313,3 +317,11 @@ impl<T: Clone> Clone for FrontVec<T> {
         todo!()
     }
 }
+
+impl<T: PartialEq> PartialEq for FrontVec<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl<T: Eq> Eq for FrontVec<T> {}

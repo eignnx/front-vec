@@ -1,4 +1,4 @@
-use crate::FrontVec;
+use super::front_vec::FrontVec;
 
 pub struct IntoIter<T> {
     v: Option<FrontVec<T>>,
@@ -22,7 +22,7 @@ impl<T> Iterator for IntoIter<T> {
 #[test]
 fn iterator() {
     let v = FrontVec::from(vec![1, 2, 3, 4, 5]);
-    let mut it = crate::iter::IntoIter { v: Some(v) };
+    let mut it = IntoIter { v: Some(v) };
     assert_eq!(it.next(), Some(1));
     assert_eq!(it.next(), Some(2));
     assert_eq!(it.next(), Some(3));
