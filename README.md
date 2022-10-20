@@ -5,6 +5,9 @@ Exposes two types: `FrontVec<T>` and `FrontString`. Each implements a `push_fron
 
 The types implement `Deref` so that they can be used like slices/`&str`s.
 
+# `unsafe` Warning
+This is an "in-development" crate. I'm not certain all uses of `unsafe` are valid yet. Please don't use this for anything important yet.
+
 ## Potential Use Cases
 ### Efficient **Cons**-Lists
 My use-case is for packing data together in memory more eficiently than a cons-list, but with the same API as one.
