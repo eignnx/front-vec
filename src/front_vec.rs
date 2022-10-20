@@ -1,0 +1,315 @@
+use std::{
+    alloc::{alloc, Layout},
+    fmt,
+    marker::PhantomData,
+    mem::{self, MaybeUninit},
+    ops::{Deref, DerefMut, Index, IndexMut},
+    ptr::Unique,
+    slice::SliceIndex,
+};
+
+/// # Memory Layout:
+/// ```ignore
+/// [?, ?, ?, ?, e1, e2, e3]
+///              ^^^^^^^^^^ initialized region
+/// ^^^^^^^^^^^ uninitialized region
+/// ```
+pub struct FrontVec<T> {
+    buf: Unique<MaybeUninit<T>>,
+    cap: usize,
+    len: usize,
+    _marker: PhantomData<T>,
+}
+
+fn alloc_buf<T>(len: usize) -> Unique<MaybeUninit<T>> {
+    assert_ne!(mem::size_of::<T>(), 0);
+
+    if len == 0 {
+        return Unique::dangling();
+    }
+
+    let layout = Layout::array::<MaybeUninit<T>>(len).unwrap();
+    let ptr = unsafe { alloc(layout) as *mut MaybeUninit<T> };
+    if ptr.is_null() {
+        std::alloc::handle_alloc_error(layout)
+    };
+    unsafe { Unique::new_unchecked(ptr) }
+}
+
+impl<T> FrontVec<T> {
+    pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        assert_ne!(mem::size_of::<T>(), 0);
+        Self {
+            buf: alloc_buf(cap),
+            cap,
+            len: 0,
+            _marker: Default::default(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.cap
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn double_no_realloc(&mut self) {
+        self.grow_no_realloc(self.cap * 2);
+    }
+
+    pub fn grow_no_realloc(&mut self, new_cap: usize) {
+        // First alloc a new buffer and swap it out with the old buffer.
+        let old_buf = mem::replace(&mut self.buf, alloc_buf(new_cap));
+
+        let old_cap = self.cap;
+        self.cap = new_cap;
+
+        // Calculate pointers to the beginnings of the initialized elements.
+        let old_front = unsafe { old_buf.as_ptr().add(old_cap - self.len) };
+        let front = unsafe { self.buf.as_ptr().add(self.cap - self.len) };
+
+        // Copy all initialized elements from old to new.
+        unsafe {
+            front.copy_from_nonoverlapping(old_front, self.len);
+        }
+
+        // Deallocate old buffer.
+        let old_layout = Layout::array::<MaybeUninit<T>>(old_cap).unwrap();
+        unsafe {
+            std::alloc::dealloc(old_buf.as_ptr() as *mut u8, old_layout);
+        }
+    }
+
+    fn front_internal_index(&self) -> usize {
+        self.cap - self.len
+    }
+
+    /// # Safety
+    /// This doesn't necessarily return something that points into the buf.
+    unsafe fn before_front_mut(&mut self) -> &mut MaybeUninit<T> {
+        unsafe {
+            self.buf
+                .as_ptr()
+                .add(self.front_internal_index() - 1)
+                .as_mut()
+                .unwrap_unchecked()
+        }
+    }
+
+    fn front_mut(&mut self) -> &mut MaybeUninit<T> {
+        unsafe {
+            self.buf
+                .as_ptr()
+                .add(self.front_internal_index())
+                .as_mut()
+                .unwrap_unchecked()
+        }
+    }
+
+    fn front_ptr(&self) -> *const MaybeUninit<T> {
+        let ptr = self.buf.as_ptr() as *const MaybeUninit<T>;
+        unsafe { ptr.add(self.front_internal_index()) }
+    }
+
+    pub fn push_front(&mut self, val: T) {
+        if self.cap == 0 {
+            self.buf = alloc_buf(4);
+            self.cap = 4;
+        } else if self.len >= self.cap {
+            self.double_no_realloc();
+        }
+
+        let slot = unsafe { self.before_front_mut() };
+        slot.write(val);
+        self.len += 1;
+    }
+
+    pub fn pop_front(&mut self) -> Option<T> {
+        if self.len == 0 {
+            return None;
+        }
+
+        let front = self.front_mut();
+        let val = unsafe { front.assume_init_read() };
+        self.len -= 1;
+        Some(val)
+    }
+
+    /// Returns false if capacity was already sufficient, returns true if a
+    /// reallocation was done.
+    pub fn reserve_front(&mut self, extra_space_needed: usize) -> bool {
+        let available_space = self.capacity() - self.len();
+
+        if available_space >= extra_space_needed {
+            false
+        } else {
+            self.grow_no_realloc(self.capacity() + extra_space_needed);
+            true
+        }
+    }
+
+    /// Returns a slice that references the uninitialized portion of the underlying
+    /// buffer.
+    pub fn get_uninit_raw_parts(&self) -> (*const MaybeUninit<T>, usize) {
+        (self.buf.as_ptr(), self.cap - self.len)
+    }
+
+    /// Returns a mutable slice that references the uninitialized portion of the
+    /// underlying buffer.
+    pub fn get_uninit_raw_parts_mut(&mut self) -> (*mut MaybeUninit<T>, usize) {
+        (self.buf.as_ptr(), self.cap - self.len)
+    }
+
+    pub fn extend_front(&mut self, slice: &[T]) {
+        if slice.is_empty() {
+            return;
+        }
+
+        self.reserve_front(slice.len());
+
+        let (buf, _) = self.get_uninit_raw_parts_mut();
+        let buf = unsafe { buf.as_mut().unwrap() };
+        let buf: *mut T = unsafe { buf.assume_init_mut() } as *mut T;
+        unsafe {
+            // NOTE: doesn't drop anything..... hmmmmmm
+            buf.copy_from_nonoverlapping(slice.as_ptr(), slice.len());
+        }
+    }
+}
+
+impl<T> AsMut<[T]> for FrontVec<T> {
+    fn as_mut(&mut self) -> &mut [T] {
+        let front = self.front_mut().as_mut_ptr();
+        unsafe { std::slice::from_raw_parts_mut(front, self.len) }
+    }
+}
+
+impl<T> AsRef<[T]> for FrontVec<T> {
+    fn as_ref(&self) -> &[T] {
+        let front = self.front_ptr();
+        let slice = unsafe { std::slice::from_raw_parts(front, self.len) };
+        unsafe { MaybeUninit::slice_assume_init_ref(slice) }
+    }
+}
+
+impl<T> Deref for FrontVec<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl<T> DerefMut for FrontVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+    }
+}
+
+impl<T> Drop for FrontVec<T> {
+    fn drop(&mut self) {
+        for item in self.as_mut() {
+            drop(item)
+        }
+
+        if self.cap == 0 {
+            // No buffer has been allocated, so DO NOT deallocate it.
+            return;
+        }
+
+        let buf = self.buf.as_ptr() as *mut u8;
+        let layout = Layout::array::<T>(self.cap).unwrap();
+        unsafe {
+            std::alloc::dealloc(buf, layout);
+        }
+    }
+}
+
+// impl<T> Index<usize> for FrontVec<T> {
+//     type Output = T;
+
+//     #[track_caller]
+//     fn index(&self, index: usize) -> &Self::Output {
+//         self.get(index).unwrap()
+//     }
+// }
+
+// impl<T> IndexMut<usize> for FrontVec<T> {
+//     #[track_caller]
+//     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+//         self.get_mut(index).unwrap()
+//     }
+// }
+
+impl<T, I: SliceIndex<[T]>> Index<I> for FrontVec<T> {
+    type Output = I::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        Index::index(&**self, index)
+    }
+}
+
+impl<T, I: SliceIndex<[T]>> IndexMut<I> for FrontVec<T> {
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        IndexMut::index_mut(&mut **self, index)
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for FrontVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let slice: &[T] = self.as_ref();
+        slice.fmt(f)
+    }
+}
+
+impl<T: Copy> From<&[T]> for FrontVec<T> {
+    fn from(slice: &[T]) -> Self {
+        let mut v = FrontVec::with_capacity(slice.len());
+
+        for item in slice.iter().rev() {
+            v.push_front(*item);
+        }
+
+        v
+    }
+}
+
+impl<T: Copy, const N: usize> From<&[T; N]> for FrontVec<T> {
+    fn from(array: &[T; N]) -> Self {
+        array.as_ref().into()
+    }
+}
+
+impl<T> From<Vec<T>> for FrontVec<T> {
+    /// Note: Any extra capacity is dropped.
+    fn from(v: Vec<T>) -> Self {
+        let bs = v.into_boxed_slice();
+        let len = bs.len();
+        let cap = len;
+        let buf = Unique::from(Box::leak(bs)).cast();
+        Self {
+            buf,
+            len,
+            cap,
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<T: Clone> Clone for FrontVec<T> {
+    fn clone(&self) -> Self {
+        todo!()
+    }
+}
