@@ -1,4 +1,4 @@
-use std::{fmt, mem, ops::Deref};
+use std::{fmt, ops::Deref};
 
 use crate::FrontVec;
 
