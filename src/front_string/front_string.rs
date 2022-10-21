@@ -9,17 +9,19 @@ pub struct FrontString {
 
 impl FrontString {
     pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            buf: FrontVec::new(),
+            buf: FrontVec::with_capacity(capacity),
         }
     }
 
     pub fn push_char_front(&mut self, ch: char) {
-        const CHAR_BYTES: usize = mem::size_of::<char>();
-        let bytes_needed = ch.len_utf8();
-        let byte_repr: [u8; CHAR_BYTES] = unsafe { mem::transmute(ch) };
-        let byte_slice = &byte_repr[CHAR_BYTES - bytes_needed..];
-        self.buf.extend_front(byte_slice);
+        let mut buf = [0; 4];
+        let bytes = ch.encode_utf8(&mut buf);
+        self.buf.extend_front(bytes.as_bytes());
     }
 
     pub fn pop_char_front(&mut self) -> Option<char> {
