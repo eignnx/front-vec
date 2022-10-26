@@ -18,6 +18,10 @@ impl FrontString {
         }
     }
 
+    pub fn capacity(&self) -> usize {
+        self.buf.capacity()
+    }
+
     pub fn push_char_front(&mut self, ch: char) {
         let mut buf = [0; 4];
         let bytes = ch.encode_utf8(&mut buf);
