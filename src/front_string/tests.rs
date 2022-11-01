@@ -49,3 +49,21 @@ fn unicode_characters() {
 
     assert_eq!(s, full);
 }
+
+#[test]
+fn truncation() {
+    let full = "いろはにほへとちりぬるを";
+    let end = "とちりぬるを";
+    let mut s = FrontString::from(full);
+    s.truncate(end.len());
+    assert_eq!(s, end);
+}
+
+#[should_panic]
+#[test]
+fn bad_truncation() {
+    let full = "いろはにほへとちりぬるを";
+    let end = "とちりぬるを";
+    let mut s = FrontString::from(full);
+    s.truncate(end.len() - 1);
+}

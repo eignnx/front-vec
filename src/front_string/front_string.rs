@@ -44,6 +44,24 @@ impl FrontString {
     pub fn push_str_front<S: AsRef<str>>(&mut self, s: S) {
         self.buf.extend_front(s.as_ref().as_bytes());
     }
+
+    /// Shortens the `FrontString`, keeping the **last** `len` bytes and
+    /// dropping the rest.
+    /// If `len` is greater than the current length, this has no effect.
+    /// Note that this method has no effect on the allocated capacity of the
+    /// `FrontString`.
+    ///
+    /// # Panics
+    /// Panics if `new_len` does not lie on a `char` boundary.
+    pub fn truncate(&mut self, new_len: usize) {
+        let new_len = usize::min(self.len(), new_len);
+
+        if !self.is_char_boundary(new_len) {
+            panic!("new length is not on a char boundary");
+        }
+
+        self.buf.truncate(new_len);
+    }
 }
 
 impl From<&str> for FrontString {

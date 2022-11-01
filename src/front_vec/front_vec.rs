@@ -189,6 +189,20 @@ impl<T> FrontVec<T> {
 
         self.len += slice.len();
     }
+
+    /// Shortens the `FrontVec`, keeping the **last** `len` elements and
+    /// dropping the rest.
+    /// If `len` is greater than the current length, this has no effect.
+    /// Note that this method has no effect on the allocated capacity of the
+    /// `FrontVec`.
+    pub fn truncate(&mut self, len: usize) {
+        let new_len = usize::min(len, self.len);
+        let to_drop = self.len - new_len;
+        for item in &mut self[0..to_drop] {
+            drop(item);
+        }
+        self.len = new_len;
+    }
 }
 
 impl<T> AsMut<[T]> for FrontVec<T> {
