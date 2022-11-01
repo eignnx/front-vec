@@ -29,10 +29,14 @@ fn alloc_buf<T>(len: usize) -> Unique<MaybeUninit<T>> {
     }
 
     let layout = Layout::array::<MaybeUninit<T>>(len).unwrap();
+    // SAFETY:
+    // TODO[safety argument omitted]
     let ptr = unsafe { alloc(layout) as *mut MaybeUninit<T> };
     if ptr.is_null() {
         std::alloc::handle_alloc_error(layout)
     };
+    // SAFETY:
+    // TODO[safety argument omitted]
     unsafe { Unique::new_unchecked(ptr) }
 }
 
@@ -76,16 +80,24 @@ impl<T> FrontVec<T> {
 
         // If old buffer wasn't `Unique::dangling()`...
         if old_cap > 0 {
+            // SAFETY:
+            // TODO[safety argument omitted]
             // Calculate pointers to the beginnings of the initialized elements.
             let old_front = unsafe { old_buf.as_ptr().add(old_cap - self.len) };
+            // SAFETY:
+            // TODO[safety argument omitted]
             let front = unsafe { self.buf.as_ptr().add(self.cap - self.len) };
 
+            // SAFETY:
+            // TODO[safety argument omitted]
             // Copy all initialized elements from old to new.
             unsafe {
                 front.copy_from_nonoverlapping(old_front, self.len);
             }
             // Deallocate old buffer.
             let old_layout = Layout::array::<MaybeUninit<T>>(old_cap).unwrap();
+            // SAFETY:
+            // TODO[safety argument omitted]
             unsafe {
                 std::alloc::dealloc(old_buf.as_ptr() as *mut u8, old_layout);
             }
@@ -99,6 +111,8 @@ impl<T> FrontVec<T> {
     /// # Safety
     /// This doesn't necessarily return something that points into the buf.
     unsafe fn before_front_mut(&mut self) -> &mut MaybeUninit<T> {
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe {
             self.buf
                 .as_ptr()
@@ -109,6 +123,8 @@ impl<T> FrontVec<T> {
     }
 
     fn front_mut(&mut self) -> &mut MaybeUninit<T> {
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe {
             self.buf
                 .as_ptr()
@@ -120,6 +136,8 @@ impl<T> FrontVec<T> {
 
     fn front_ptr(&self) -> *const MaybeUninit<T> {
         let ptr = self.buf.as_ptr() as *const MaybeUninit<T>;
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe { ptr.add(self.front_internal_index()) }
     }
 
@@ -131,6 +149,8 @@ impl<T> FrontVec<T> {
             self.double_no_realloc();
         }
 
+        // SAFETY:
+        // TODO[safety argument omitted]
         let slot = unsafe { self.before_front_mut() };
         slot.write(val);
         self.len += 1;
@@ -142,6 +162,8 @@ impl<T> FrontVec<T> {
         }
 
         let front = self.front_mut();
+        // SAFETY:
+        // TODO[safety argument omitted]
         let val = unsafe { front.assume_init_read() };
         self.len -= 1;
         Some(val)
@@ -180,8 +202,14 @@ impl<T> FrontVec<T> {
         self.reserve_front(slice.len());
 
         let (buf, _) = self.get_uninit_raw_parts_mut();
+        // SAFETY:
+        // TODO[safety argument omitted]
         let buf = unsafe { buf.as_mut().unwrap() };
+        // SAFETY:
+        // TODO[safety argument omitted]
         let buf: *mut T = unsafe { buf.assume_init_mut() } as *mut T;
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe {
             // NOTE: doesn't drop anything..... hmmmmmm
             buf.copy_from_nonoverlapping(slice.as_ptr(), slice.len());
@@ -208,6 +236,8 @@ impl<T> FrontVec<T> {
 impl<T> AsMut<[T]> for FrontVec<T> {
     fn as_mut(&mut self) -> &mut [T] {
         let front = self.front_mut().as_mut_ptr();
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe { std::slice::from_raw_parts_mut(front, self.len) }
     }
 }
@@ -215,6 +245,8 @@ impl<T> AsMut<[T]> for FrontVec<T> {
 impl<T> AsRef<[T]> for FrontVec<T> {
     fn as_ref(&self) -> &[T] {
         let front = self.front_ptr();
+        // SAFETY:
+        // TODO[safety argument omitted]
         let slice = unsafe { std::slice::from_raw_parts(front, self.len) };
         unsafe { MaybeUninit::slice_assume_init_ref(slice) }
     }
@@ -247,6 +279,8 @@ impl<T> Drop for FrontVec<T> {
 
         let buf = self.buf.as_ptr() as *mut u8;
         let layout = Layout::array::<T>(self.cap).unwrap();
+        // SAFETY:
+        // TODO[safety argument omitted]
         unsafe {
             std::alloc::dealloc(buf, layout);
         }

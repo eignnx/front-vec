@@ -32,6 +32,8 @@ impl FrontString {
         self.chars().next().map(|first_char: char| {
             // Pop off all of first_char's bytes.
             for _ in 0..first_char.len_utf8() {
+                // SAFETY:
+                // TODO[safety argument omitted]
                 unsafe {
                     self.buf.pop_front().unwrap_unchecked();
                 }
