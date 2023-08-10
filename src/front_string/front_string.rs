@@ -117,3 +117,17 @@ impl fmt::Display for FrontString {
         write!(f, "{slice}")
     }
 }
+
+impl Default for FrontString {
+    fn default() -> Self {
+        FrontString::new()
+    }
+}
+
+impl Clone for FrontString {
+    fn clone(&self) -> Self {
+        Self {
+            buf: self.buf.clone(),
+        }
+    }
+}

@@ -1,6 +1,6 @@
 [package]
 name = "front-vec"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 authors = ["eignnx"]
 description = "Efficiently-prependable Vec and String types."

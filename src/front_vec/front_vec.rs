@@ -373,3 +373,9 @@ impl<T: PartialEq> PartialEq for FrontVec<T> {
 }
 
 impl<T: Eq> Eq for FrontVec<T> {}
+
+impl<T> Default for FrontVec<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
