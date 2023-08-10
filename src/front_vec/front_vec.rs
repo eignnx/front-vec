@@ -226,8 +226,46 @@ impl<T> FrontVec<T> {
     pub fn truncate(&mut self, len: usize) {
         let new_len = usize::min(len, self.len);
         let to_drop = self.len - new_len;
-        for item in &mut self[0..to_drop] {
-            drop(item);
+        if mem::size_of::<T>() > 0 {
+            for item in &mut self[0..to_drop] {
+                // SAFETY:
+                //
+                // Assume `ptr` is `(&mut self[i]) as *mut _)` for any index `i` within
+                // bounds.
+                //
+                // > `to_drop` must be [valid] for both reads and writes.
+                // Assuming `self` is valid, `ptr` is valid.
+                //
+                // > `to_drop` must be properly aligned, even if `T` has size 0.
+                // If `self` has a stored value already, then `ptr` is aligned. Also,
+                // `size_of::<T>()` is non-zero due to the if statement.
+                //
+                // > `to_drop` must be nonnull, even if `T` has size 0.
+                // Since `ptr` comes from a `&mut T`, it's nonnull.
+                //
+                // > The value `to_drop` points to must be valid for dropping, which may mean
+                // > it must uphold additional invariants. These invariants depend on the type
+                // > of the value being dropped. For instance, when dropping a Box, the box's
+                // > pointer to the heap must be valid.
+                // We assume a `&mut T` references a valid-to-drop value.
+                //
+                // > While `drop_in_place` is executing, the only way to access parts of
+                // > `to_drop` is through the `&mut self` references supplied to the
+                // > `Drop::drop` methods that `drop_in_place` invokes.
+                // Yes, `ptr` is a unique pointer to it's pointee because it comes from a
+                // `&mut T`.
+                //
+                // > Additionally, if `T` is not [`Copy`], using the pointed-to value after
+                // > calling `drop_in_place` can cause undefined behavior. Note that `*to_drop =
+                // > foo` counts as a use because it will cause the value to be dropped
+                // > again. [`write()`] can be used to overwrite data without causing it to be
+                // > dropped.
+                // The pointer `ptr` is immediately discarded at the end of the loop body. It
+                // won't be used again after the `drop_in_place`.
+                unsafe {
+                    std::ptr::drop_in_place(item as *mut _);
+                }
+            }
         }
         self.len = new_len;
     }
