@@ -74,6 +74,20 @@ impl From<&str> for FrontString {
     }
 }
 
+impl From<String> for FrontString {
+    fn from(s: String) -> Self {
+        // SAFETY:
+        //  1. A String is valid utf8 bytes.
+        //  2. The Vec<u8> produced from a String contains valid utf8 bytes.
+        //  3. A FrontVec<u8> produced from the Vec<u8> contains valid utf8 bytes.
+        //  4. Therefore Self contains valid utf8 bytes.
+        let byte_vec: Vec<u8> = s.into();
+        Self {
+            buf: byte_vec.into(),
+        }
+    }
+}
+
 impl Deref for FrontString {
     type Target = str;
 
