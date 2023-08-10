@@ -438,7 +438,11 @@ impl<T> From<Vec<T>> for FrontVec<T> {
 
 impl<T: Clone> Clone for FrontVec<T> {
     fn clone(&self) -> Self {
-        todo!()
+        let mut new = Self::with_capacity(self.cap);
+        for item in self.iter().rev() {
+            new.push_front(item.clone());
+        }
+        new
     }
 }
 
