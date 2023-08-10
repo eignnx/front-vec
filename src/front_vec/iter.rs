@@ -14,7 +14,7 @@ impl<T> Iterator for IntoIter<T> {
                 v.pop_front()
             }
             Some(v) if !v.is_empty() => v.pop_front(),
-            _ => return None,
+            _ => None,
         }
     }
 }

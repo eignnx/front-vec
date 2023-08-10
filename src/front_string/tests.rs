@@ -18,7 +18,7 @@ fn fmt_debug() {
 #[test]
 fn fmt_display() {
     let s1 = format!("{}", FrontString::from("asdf"));
-    let s2 = format!("{}", String::from("asdf"));
+    let s2 = String::from("asdf");
     assert_eq!(s1, s2);
 }
 

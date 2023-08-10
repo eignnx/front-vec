@@ -29,6 +29,8 @@ fn new_drop() {
 
 #[test]
 fn random_access() {
+    #![allow(clippy::get_first)]
+
     let mut v = FrontVec::<usize>::new();
     v.push_front(5);
     v.push_front(4);
