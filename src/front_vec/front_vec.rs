@@ -402,19 +402,19 @@ impl<T: fmt::Debug> fmt::Debug for FrontVec<T> {
     }
 }
 
-impl<T: Copy> From<&[T]> for FrontVec<T> {
+impl<T: Clone> From<&[T]> for FrontVec<T> {
     fn from(slice: &[T]) -> Self {
         let mut v = FrontVec::with_capacity(slice.len());
 
         for item in slice.iter().rev() {
-            v.push_front(*item);
+            v.push_front(item.clone());
         }
 
         v
     }
 }
 
-impl<T: Copy, const N: usize> From<&[T; N]> for FrontVec<T> {
+impl<T: Clone, const N: usize> From<&[T; N]> for FrontVec<T> {
     fn from(array: &[T; N]) -> Self {
         array.as_ref().into()
     }
