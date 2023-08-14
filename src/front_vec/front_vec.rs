@@ -194,28 +194,19 @@ impl<T> FrontVec<T> {
         (self.buf.as_ptr(), self.cap - self.len)
     }
 
-    pub fn extend_front(&mut self, slice: &[T]) {
-        if slice.is_empty() {
+    pub fn extend_front(&mut self, items: impl DoubleEndedIterator<Item = T>) {
+        let (min_size, max_size) = items.size_hint();
+
+        // We know for sure there are no elements to add.
+        if max_size == Some(0) {
             return;
         }
 
-        self.reserve_front(slice.len());
+        self.reserve_front(min_size);
 
-        let (buf, _) = self.get_uninit_raw_parts_mut();
-        // SAFETY:
-        // TODO[safety argument omitted]
-        let buf = unsafe { buf.as_mut().unwrap() };
-        // SAFETY:
-        // TODO[safety argument omitted]
-        let buf: *mut T = unsafe { buf.assume_init_mut() } as *mut T;
-        // SAFETY:
-        // TODO[safety argument omitted]
-        unsafe {
-            // NOTE: doesn't drop anything..... hmmmmmm
-            buf.copy_from_nonoverlapping(slice.as_ptr(), slice.len());
+        for item in items.rev() {
+            self.push_front(item)
         }
-
-        self.len += slice.len();
     }
 
     /// Shortens the `FrontVec`, keeping the **last** `len` elements and

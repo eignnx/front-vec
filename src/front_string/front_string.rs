@@ -24,8 +24,8 @@ impl FrontString {
 
     pub fn push_char_front(&mut self, ch: char) {
         let mut buf = [0; 4];
-        let bytes = ch.encode_utf8(&mut buf);
-        self.buf.extend_front(bytes.as_bytes());
+        let bytes = ch.encode_utf8(&mut buf).bytes();
+        self.buf.extend_front(bytes);
     }
 
     pub fn pop_char_front(&mut self) -> Option<char> {
@@ -44,7 +44,7 @@ impl FrontString {
     }
 
     pub fn push_str_front<S: AsRef<str>>(&mut self, s: S) {
-        self.buf.extend_front(s.as_ref().as_bytes());
+        self.buf.extend_front(s.as_ref().bytes());
     }
 
     /// Shortens the `FrontString`, keeping the **last** `len` bytes and
