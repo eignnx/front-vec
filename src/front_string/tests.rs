@@ -1,25 +1,26 @@
 use super::FrontString;
+use assert2::assert;
 
 #[test]
 fn basic_string_ops() {
     let mut s = FrontString::new();
     s.push_str_front("cadabra");
     s.push_str_front("abra");
-    assert_eq!(s, "abracadabra");
+    assert!(s == "abracadabra");
 }
 
 #[test]
 fn fmt_debug() {
     let s1 = format!("{:?}", FrontString::from("asdf"));
     let s2 = format!("{:?}", String::from("asdf"));
-    assert_eq!(s1, s2);
+    assert!(s1 == s2);
 }
 
 #[test]
 fn fmt_display() {
     let s1 = format!("{}", FrontString::from("asdf"));
     let s2 = String::from("asdf");
-    assert_eq!(s1, s2);
+    assert!(s1 == s2);
 }
 
 #[test]
@@ -30,7 +31,7 @@ fn char_to_bytes() {
     let ch = 'ぬ';
     let mut buf = [0; 4];
     let bytes = ch.encode_utf8(&mut buf);
-    assert_eq!(bytes.as_bytes(), &expected);
+    assert!(bytes.as_bytes() == &expected);
 }
 
 #[test]
@@ -47,7 +48,7 @@ fn unicode_characters() {
     s.push_str_front(middle);
     s.push_char_front(first);
 
-    assert_eq!(s, full);
+    assert!(s == full);
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn truncation() {
     let end = "とちりぬるを";
     let mut s = FrontString::from(full);
     s.truncate(end.len());
-    assert_eq!(s, end);
+    assert!(s == end);
 }
 
 #[should_panic]
@@ -66,4 +67,16 @@ fn bad_truncation() {
     let end = "とちりぬるを";
     let mut s = FrontString::from(full);
     s.truncate(end.len() - 1);
+}
+
+#[test]
+fn extend_truncate_extend() {
+    let mut s = FrontString::from("tion");
+    assert!(s == "tion");
+    s.push_str_front("revolu");
+    assert!(s == "revolution");
+    s.truncate("tion".len());
+    assert!(s == "tion");
+    s.push_str_front("evolu");
+    assert!(s == "evolution");
 }
