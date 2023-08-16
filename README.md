@@ -5,6 +5,13 @@ Exposes two types: `FrontVec<T>` and `FrontString`. Each implements a `push_fron
 
 The types implement `Deref` so that they can be used like slices/`&str`s.
 
+# Unstable Warning
+This crate uses the following unstable features, and therefore requires the nightly
+compiler.
+```
+#![feature(ptr_internals, maybe_uninit_slice)]
+```
+
 # `unsafe` Warning
 This is an "in-development" crate. I'm not certain all uses of `unsafe` are valid yet. Please don't use this for anything important yet.
 
