@@ -1,4 +1,4 @@
-use std::{fmt, ops::Deref};
+use std::{fmt, mem::MaybeUninit, ops::Deref};
 
 use crate::FrontVec;
 
@@ -20,6 +20,11 @@ impl FrontString {
 
     pub fn capacity(&self) -> usize {
         self.buf.capacity()
+    }
+
+    /// Ensures capacity has at least `additional` more bytes of capacity.
+    pub fn reserve_front(&mut self, additional: usize) {
+        self.buf.reserve_front(additional);
     }
 
     pub fn push_char_front(&mut self, ch: char) {
@@ -45,6 +50,17 @@ impl FrontString {
 
     pub fn push_str_front<S: AsRef<str>>(&mut self, s: S) {
         self.buf.extend_front(s.as_ref().bytes());
+    }
+
+    pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        self.buf.spare_capacity_mut()
+    }
+
+    /// # Safety
+    /// * `new_len` must be less than or equal to `capacity()`.
+    /// * The elements at `old_len..new_len` must be initialized.
+    pub unsafe fn set_len(&mut self, new_len: usize) {
+        unsafe { self.buf.set_len(new_len) }
     }
 
     /// Shortens the `FrontString`, keeping the **last** `len` bytes and

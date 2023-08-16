@@ -190,8 +190,33 @@ impl<T> FrontVec<T> {
 
     /// Returns a mutable slice that references the uninitialized portion of the
     /// underlying buffer.
+    #[deprecated(since = "0.0.8", note = "Please use `spare_capacity_mut` instead")]
     pub fn get_uninit_raw_parts_mut(&mut self) -> (*mut MaybeUninit<T>, usize) {
         (self.buf.as_ptr(), self.cap - self.len)
+    }
+
+    /// Returns the raw parts of a mutable slice that references the
+    /// uninitialized portion of the underlying buffer.
+    fn spare_capacity_raw_parts_mut(&mut self) -> (*mut MaybeUninit<T>, usize) {
+        (self.buf.as_ptr(), self.cap - self.len)
+    }
+
+    /// Returns a mutable slice that references the uninitialized portion of the
+    /// underlying buffer.
+    pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<T>] {
+        let (data, len) = self.spare_capacity_raw_parts_mut();
+        // SAFETY: TODO[safety argument omitted]
+        // Sketch of safety argument:
+        // `slice::from_raw_parts_mut(self.spare_capacity_raw_parts_mut())`
+        // is valid almost by definition.
+        unsafe { std::slice::from_raw_parts_mut(data, len) }
+    }
+
+    /// # Safety
+    /// * `new_len` must be less than or equal to `capacity()`.
+    /// * The elements at `old_len..new_len` must be initialized.
+    pub unsafe fn set_len(&mut self, new_len: usize) {
+        self.len = new_len;
     }
 
     pub fn extend_front(&mut self, items: impl DoubleEndedIterator<Item = T>) {
