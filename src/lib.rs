@@ -1,4 +1,4 @@
-#![feature(ptr_internals, maybe_uninit_slice)]
+#![feature(ptr_internals, maybe_uninit_slice, read_buf)]
 #![deny(unsafe_op_in_unsafe_fn)]
 #![allow(clippy::module_inception)]
 

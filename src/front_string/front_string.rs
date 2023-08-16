@@ -23,8 +23,10 @@ impl FrontString {
     }
 
     /// Ensures capacity has at least `additional` more bytes of capacity.
-    pub fn reserve_front(&mut self, additional: usize) {
-        self.buf.reserve_front(additional);
+    ///
+    /// Returns `true` if a reallocation happened, `false` otherwise.
+    pub fn reserve_front(&mut self, additional: usize) -> bool {
+        self.buf.reserve_front(additional)
     }
 
     pub fn push_char_front(&mut self, ch: char) {
@@ -52,6 +54,8 @@ impl FrontString {
         self.buf.extend_front(s.as_ref().bytes());
     }
 
+    /// Returns a mutable slice that references the uninitialized portion of the
+    /// underlying buffer.
     pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         self.buf.spare_capacity_mut()
     }
@@ -61,6 +65,51 @@ impl FrontString {
     /// * The elements at `old_len..new_len` must be initialized.
     pub unsafe fn set_len(&mut self, new_len: usize) {
         unsafe { self.buf.set_len(new_len) }
+    }
+
+    /// Writes the bytes from an `ExactSizeIterator` of bytes onto the front of
+    /// the string.
+    ///
+    /// Returns `true` if a reallocation happened, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use front_vec::FrontString;
+    /// # use assert2::assert;
+    /// let mut s = FrontString::from("world!");
+    /// let prefix = "Hello, ";
+    /// s.prepend_from_bytes_iter(prefix.bytes());
+    /// assert!(s == "Hello, world!");
+    /// ```
+    pub fn prepend_from_bytes_iter<Bs>(&mut self, bytes: Bs) -> bool
+    where
+        Bs: ExactSizeIterator<Item = u8>,
+    {
+        let did_realloc = self.reserve_front(bytes.len());
+
+        let bytes_len = bytes.len();
+        let spare = self.spare_capacity_mut();
+        let spare_len = spare.len();
+        let begin_write = spare_len - bytes_len;
+        let reserved_space = &mut spare[begin_write..];
+
+        // MEMORY DIAGRAM:
+        //
+        // [ ???????????????????????????? |  reserved_space | initialized front vec ]
+        // |<- (spare_len - bytes_len) -> |<-- bytes_len -->|<--------- len ------->|
+        // |<-------- spare_len = (cap - len) ------------->|
+        // |<-------------------------------- cap --------------------------------->|
+
+        for (byte, slot) in bytes.zip(reserved_space.iter_mut()) {
+            slot.write(byte);
+        }
+
+        unsafe {
+            self.set_len(self.len() + bytes_len);
+        }
+
+        did_realloc
     }
 
     /// Shortens the `FrontString`, keeping the **last** `len` bytes and
